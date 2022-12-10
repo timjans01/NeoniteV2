@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
+const NeoLog = require('./structs/NeoLog')
 
 // @author armisto#2174
 module.exports = {
@@ -165,8 +166,56 @@ module.exports = {
             return null;
         }
     },
+    async updatedCos(profileData){
+        //up to date cosmatics on login from officer's api.
+        const data = (await axios.get("https://fortnite-api.com/v2/cosmetics/br")).data;
+        
+        let upcoming_data = [];
+        (await axios.get("https://fortnite-api.com/v2/cosmetics/br/new")).data.data.items.forEach(item =>{
+            upcoming_data.push(item.id.toLowerCase());
+        });
+        
+        let yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        for (cosmetic of data.data) {
+            const item = {
+                "templateId": cosmetic.type.backendValue + ":" + cosmetic.id.toLowerCase(),
+                "attributes": {
+                    "creation_time": upcoming_data.includes(cosmetic.id.toLowerCase()) ? yesterday : "min",
+                    "max_level_bonus": 420,
+                    "level": 420,
+                    "item_seen": true,
+                    "rnd_sel_cnt": 0,
+                    "xp": 69420,
+                    "variants": cosmetic.variants ? cosmetic.variants.map(it => {
+                        if (it.options[0].tag == "000" || it.options[0].tag == "001"){
+                            return {
+                                channel: it.channel,
+                                active: "Color." + it.options[0].tag,
+                                owned: it.options.map(it =>  "color." + it.tag)
+                             }
+                        } else{ 
+                        return {
+                            channel: it.channel,
+                            active: it.options[0].tag,
+                            owned: it.options.map(it => it.tag)
+                        };
+                    }
+                    }) : [],
+                    "favorite": false
+                },
+                "quantity": 1
+            };
+            profileData.items[item.templateId] = item;
+        }
+        
+        return true;
+    },
 
     saveProfile(accountId, profileId, data) {
         fs.writeFileSync(path.join(__dirname, `/config/${accountId}/profiles/profile_${profileId}.json`), JSON.stringify(data, null, 2));
+        NeoLog.Debug(`Saved file in directory "/config/${accountId}/profiles/profile_${profileId}.json"`)
+
     }
 };

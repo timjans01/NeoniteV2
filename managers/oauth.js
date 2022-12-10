@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const uuid = require('uuid')
 const Profile = require("../profile");
+const NeoLog = require('../structs/NeoLog')
 const {
 	ApiException
 } = require('../structs/errors');
@@ -18,9 +19,10 @@ const jsonwebtoken = require('jsonwebtoken');
  */
 module.exports = (app) => {
 	//token
-	app.post('/account/api/oauth/token', (req, res, next) => {
+	app.post('/account/api/oauth/token', async (req, res, next) => {
 		var displayName = "";
 		var accountId = "";
+		var profileId = "athena";
 		switch (req.body.grant_type) {
 			case "client_credentials":
 				displayName = undefined;
@@ -76,6 +78,32 @@ module.exports = (app) => {
 			default:
 				throw new ApiException(errors.com.epicgames.common.oauth.unsupported_grant_type).with(req.body.grant_type)
 				break;
+		}
+
+		if (accountId !== undefined) 
+		{
+			var profileData = Profile.readProfile(accountId, profileId);
+			if (!profileData) 
+			{
+				profileData = Profile.readProfileTemplate(profileId);
+
+				if (!profileData) {
+					throw new ApiException(errors.com.epicgames.modules.profiles.operation_forbidden).with(profileId);
+				}
+
+				profileData.created = profileData.updated = new Date().toISOString();
+				profileData['_id'] = accountId;
+				profileData.accountId = accountId;
+				await Profile.updatedCos(profileData);
+
+				try {
+					fs.mkdirSync(`./config/${accountId}/profiles`, { recursive: true });
+					Profile.saveProfile(accountId, profileId, profileData);
+				} catch (e) {
+				NeoLog.Error("Failed creating profile");
+				throw e;
+				}
+			}
 		}
 
 		res.json({

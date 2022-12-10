@@ -32,7 +32,7 @@ global.LobbyBotPort = 80;
 
 axios.defaults.headers["user-agent"] = `NeoniteServer/${version} axios/${axiosPackage.version}`;
 
-axios.get('https://raw.githubusercontent.com/NeoniteDev/NeoniteV2/main/package.json', { validateStatus: undefined }).then((response) => {
+axios.get('https://raw.githubusercontent.com/timjans01/NeoniteV2/main/package.json', { validateStatus: undefined }).then((response) => {
 	if (response.status == 200) {
 		var compare = versionCompare(response.data.version, version);
 
@@ -42,6 +42,37 @@ axios.get('https://raw.githubusercontent.com/NeoniteDev/NeoniteV2/main/package.j
 		}
 	}
 });
+
+async function compareAndUpdateKeychain() {
+	try {
+	  const response = await axios.get('https://api.nitestats.com/v1/epic/keychain');
+	  const data = response.data;
+	  // read the local JSON array from the file
+	  const localData = JSON.parse(fs.readFileSync('./keychain.json'));
+	  // iterate over the entries in the URL array
+	  for (const entry of data) {
+		// check if the entry is not present in the local array
+		if (!localData.includes(entry)) {
+		  // add the entry to the local array
+		  localData.push(entry);
+		}
+	  }
+	  // save the updated local array to the file
+	  fs.writeFileSync('./keychain.json', JSON.stringify(localData));
+	} catch (error) {
+	  console.error(error);}
+	fs.readFile('./keychain.json', 'utf8', (err, data) => {
+		if (err) throw err;
+  
+		const updated = data.replace(/,/g, ',\n'); // i know there are better ways to do this
+  
+		fs.writeFile('./keychain.json', updated, 'utf8', (err) => {
+	 	 if (err) throw err;
+		});
+  });
+  NeoLog.Debug(`Updated keychain.json from Nitestats API.`)
+
+  }
 
 (function () {
 	"use strict";
@@ -64,6 +95,9 @@ axios.get('https://raw.githubusercontent.com/NeoniteDev/NeoniteV2/main/package.j
 	app.set("etag", false);
 
 
+
+	const fs = require('fs');
+	compareAndUpdateKeychain();
 
 	fs.readdirSync(`${__dirname}/managers`).forEach(route => {
 		require(`${__dirname}/managers/${route}`)(app, port);
